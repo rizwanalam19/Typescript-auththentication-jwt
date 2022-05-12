@@ -8,7 +8,7 @@
       <th scope="col">Email</th>
       <th scope="col">Password</th>
       <th scope="col">Tokens</th>
-
+      <th scope="col" colspan="2">Actions</th>
     </tr>
   </thead>
   <tbody>
@@ -20,6 +20,8 @@
       <td>{{EMAIL}}</td>
       <td>{{PASSWORD}}</td>
       <td>{{TOKENS}}</td>
+       <td> <a href="/edit/:{{ID}}" class="btn btn-info sm-btn">Update</a></td>
+      <td> <a class="btn btn-danger sm-btn">Delete</a></td>
 
     </tr>
   {{/each}}

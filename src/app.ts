@@ -5,6 +5,9 @@ const path = require("path");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 var cookieParser = require("cookie-parser");
+const dotenv = require("dotenv");
+dotenv.config();
+const nodemailer = require("nodemailer");
 const auth = require("../passport/auth");
 const static_path = path.join(__dirname, "../public");
 const templates_path = path.join(__dirname, "../template/views");
@@ -12,6 +15,8 @@ const partial_path = path.join(__dirname, "../template/partials");
 const connectionPool = require("./db/conn");
 const hbs = require("hbs");
 const bodyParser = require("body-parser");
+var urlencodedParser = bodyParser.urlencoded({ extended: false });
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
@@ -33,6 +38,30 @@ app.use(cookieParser());
 app.set("view engine", "hbs");
 app.set("views", templates_path);
 hbs.registerPartials(partial_path);
+
+let transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.MAIL,
+    pass: process.env.PASS,
+  },
+});
+// transporter.use("compile", hbs);
+
+// let mailOptions = {
+//   from: "rizborntorule@gmail.com",
+//   to: "rizwanalamcoc@gmail.com",
+//   subject: "Testing and testing",
+//   html: "<div style='color:red;'>Hello world</div>",
+// };
+
+// transporter.sendMail(mailOptions, function(err: any, data: any) {
+//   if (err) {
+//     console.log(err);
+//   } else {
+//     console.log("Email send");
+//   }
+// });
 
 app.get("/", (req, res) => {
   res.render("index");
@@ -110,54 +139,42 @@ app.post("/login", async (req, res) => {
 
   connectionPool.use(async (clientConnection: any) => {
     const statement = await clientConnection.execute({
-      sqlText: `SELECt * FROM MYDATABASE.PUBLIC.REGISTER WHERE EMAIL = '${Regis.EMAIL}'`,
+      sqlText: `SELECT * FROM MYDATABASE.PUBLIC.REGISTER WHERE EMAIL = '${Regis.EMAIL}'`,
 
       // sqlText: `SELECT * FROM MYDATABASE.PUBLIC.REGISTER WHERE ID = '${login.EMAIL}'`,
       // const match = await bcrypt.compare(password, REGISTER.PASSWORD);
       complete: async function(err: any, rows: any, field: any) {
-        if (err) {
-          console.error(
-            "Failed to execute statement due to the following error: " +
-              err.message
-          );
-
-          // console.log(field[0].EMAIL);
-        } else {
+        try {
+          // const regEmail = field[0].EMAIL;
           const hashedPassword = field[0].PASSWORD;
-
-          // const verifyToken = jwt.verify(token, "rizwanalam");
-
-          // console.log("yeh wala  token hai " + verifyToken);
-          //get the hashedPassword from result
           console.log(Regis.PASSWORD);
           const match = await bcrypt.compare(Regis.PASSWORD, hashedPassword);
           if (match) {
-            // console.log(hashedPassword + Regis.PASSWORD);
-            // res.send(`${field[0].FIRSTNAME}---------> Login Successful
-            // [ { ID:${field[0].ID}, is logged in!`);
-
             console.log("hashedPassword = " + hashedPassword);
             const Token = jwt.sign(
               { id: field[0].PASSWORD.toString() },
               "rizwanalam"
             );
             console.log(Token);
+            res.cookie("jwt", Token);
             await clientConnection.execute({
               sqlText: `UPDATE MYDATABASE.PUBLIC.REGISTER SET TOKENS = '${Token}' WHERE EMAIL = '${Regis.EMAIL}'`,
             });
-            res.cookie("jwt", Token);
-            await res.redirect("/table");
-          } else {
-            console.log("---------> Password Incorrect");
-            res.send("Password incorrect!");
-          } //end of bcrypt.compare()
 
-          // console.log(field[0].FIRSTNAME);
+            await res.redirect("/");
+          } else {
+            res.send("Validation error");
+            console.log("validation error");
+          }
+        } catch (error) {
+          res.status(400).send("Invalid Email");
+          console.log(error);
         }
       },
     });
   });
 });
+// });
 
 app.get("/table", auth, (req, res) => {
   const token = req.cookies.jwt;
@@ -171,23 +188,23 @@ app.get("/table", auth, (req, res) => {
               err.message
           );
         } else {
-          if (token === undefined) {
-            res.redirect("/login");
-          } else {
-            res.render("table", {
-              pagination: { page: 1, limit: 10, totalRows: 10 },
-              users: fields,
-              title: "Rizwan",
-            });
-          }
+          // if (token === undefined) {
+          //   res.redirect("/login");
+          // } else {
+          res.render("table", {
+            users: fields,
+            title: "Rizwan",
+          });
+          // }
           // console.log(fields);
         }
       },
     });
   });
 });
-app.get("/udemy", auth, (res: any, req: any) => {
-  res.render("login");
+
+app.get("/udemy", (req, res) => {
+  res.render("udemy");
 });
 
 app.get("/logout", auth, async (req, res) => {
@@ -200,6 +217,126 @@ app.get("/logout", auth, async (req, res) => {
   } catch (error) {
     res.status(500).send(error);
   }
+});
+
+app.get("/edit/:id", urlencodedParser, (req, res) => {
+  connectionPool.use(async (clientConnection: any) => {
+    const statement = await clientConnection.execute({
+      sqlText: `SELECT * FROM MYDATABASE.PUBLIC.REGISTER WHERE ID = ${req.params.id}`,
+      complete: function(err: any, rows: any, field: any) {
+        if (err) {
+          console.error(
+            "Failed to execute statement due to the following error: " +
+              err.message
+          );
+        } else {
+          console.log(field);
+          res.render("update", {
+            users: field,
+          });
+        }
+      },
+    });
+  });
+});
+
+app.get("/forgot", (req, res) => {
+  res.render("forgot");
+});
+app.post("/forgot", (req, res) => {
+  interface pole {
+    EMAIL: string;
+  }
+  const Regis: pole = {
+    EMAIL: req.body.email,
+  };
+
+  connectionPool.use(async (clientConnection: any) => {
+    const statement = await clientConnection.execute({
+      sqlText: `SELECT * FROM MYDATABASE.PUBLIC.REGISTER WHERE EMAIL = '${Regis.EMAIL}'`,
+
+      // sqlText: `SELECT * FROM MYDATABASE.PUBLIC.REGISTER WHERE ID = '${login.EMAIL}'`,
+      // const match = await bcrypt.compare(password, REGISTER.PASSWORD);
+      complete: async function(err: any, rows: any, field: any) {
+        try {
+          // const regEmail = field[0].EMAIL;
+          const hashedPassword = field[0].EMAIL;
+          console.log(Regis.EMAIL);
+          if (hashedPassword) {
+            // console.log("hashedPassword = " + hashedPassword);
+            const Token = jwt.sign(
+              { EMAIL: field[0].EMAIL.toString() },
+              "rizwanalam"
+            );
+            console.log(Token);
+            let mailOptions = {
+              from: "rizborntorule@gmail.com",
+              to: "rizwanalamcoc@gmail.com",
+              subject: "Testing and testing",
+              html: `<a href='http://localhost:8000/newPassword/${Token}'>Click</a>`,
+            };
+
+            transporter.sendMail(mailOptions, function(err: any, data: any) {
+              if (err) {
+                console.log(err);
+              } else {
+                console.log("Email send");
+              }
+            });
+            await res.redirect("/udemy");
+          } else {
+            res.send("Validation error");
+            console.log("validation error");
+          }
+        } catch (error) {
+          res.status(400).send("Invalid Email");
+          console.log(error);
+        }
+      },
+    });
+  });
+});
+
+app.get("/newPassword/:token", (req, res) => {
+  connectionPool.use(async (clientConnection: any) => {
+    const token = req.params.token;
+    jwt.verify(token, "rizwanalam", (err: any, email: any) => {
+      if (err) {
+        // Link Expired
+        return res.sendStatus(403);
+      }
+      // Return Password Page
+      res.render("newPassword", {
+        users: email.EMAIL,
+      });
+      const YEH_EMAIL = email.EMAIL;
+      console.log("yeh hai " + YEH_EMAIL);
+    });
+  });
+});
+
+app.post("/newPassword", (req, res) => {
+  const EMAIL = req.body.email;
+  connectionPool.use(async (clientConnection: any) => {
+    const statement = await clientConnection.execute({
+      sqlText: `SELECT * FROM MYDATABASE.PUBLIC.REGISTER WHERE ID = ${EMAIL}`,
+      complete: async function(err: any, rows: any, field: any) {
+        try {
+          const pass = req.body.password;
+          const conpass = req.body.Conpassword;
+          if (pass === conpass) {
+            const PASSWORD = await bcrypt.hash(req.body.Conpassword, 10);
+            await clientConnection.execute({
+              sqlText: `UPDATE MYDATABASE.PUBLIC.REGISTER SET PASSWORD = '${PASSWORD}' WHERE EMAIL = '${EMAIL}'`,
+            });
+            res.redirect("table");
+          } else {
+            console.log("Password does not with confirm password");
+          }
+        } catch (error) {}
+      },
+    });
+  });
 });
 
 app.listen(port, () => console.log("app is running " + port));
