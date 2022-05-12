@@ -1,5 +1,5 @@
 import express from "express";
-const port = 8000;
+const port = 5050;
 const app = express();
 const path = require("path");
 const bcrypt = require("bcryptjs");
@@ -311,7 +311,7 @@ app.post("/forgot", (req, res) => {
               from: "rizborntorule@gmail.com",
               to: "rizwanalamcoc@gmail.com",
               subject: "Testing and testing",
-              html: `<a href='http://localhost:8000/newPassword/${Token}'>Click</a>`,
+              html: `<a href='http://localhost:${port}/newPassword/${Token}'>Click</a>`,
             };
 
             transporter.sendMail(mailOptions, function(err: any, data: any) {
