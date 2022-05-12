@@ -219,7 +219,26 @@ app.get("/logout", auth, async (req, res) => {
   }
 });
 
-app.get("/edit/:id", urlencodedParser, (req, res) => {
+app.get("/delete/:id", (req, res) => {
+  connectionPool.use(async (clientConnection: any) => {
+    const statement = await clientConnection.execute({
+      sqlText: `DELETE FROM MYDATABASE.PUBLIC.REGISTER WHERE id = ${req.params.id}`,
+      complete: function(err: any, rows: any, field: any) {
+        if (err) {
+          console.error(
+            "Failed to execute statement due to the following error: " +
+              err.message
+          );
+        } else {
+          console.log(field);
+          res.redirect("/table");
+        }
+      },
+    });
+  });
+});
+
+app.get("/edit/:id", auth, (req, res) => {
   connectionPool.use(async (clientConnection: any) => {
     const statement = await clientConnection.execute({
       sqlText: `SELECT * FROM MYDATABASE.PUBLIC.REGISTER WHERE ID = ${req.params.id}`,
@@ -234,6 +253,25 @@ app.get("/edit/:id", urlencodedParser, (req, res) => {
           res.render("update", {
             users: field,
           });
+        }
+      },
+    });
+  });
+});
+
+app.post("/update/:id", auth, (req, res) => {
+  connectionPool.use(async (clientConnection: any) => {
+    const statement = await clientConnection.execute({
+      sqlText: `UPDATE MYDATABASE.PUBLIC.REGISTER SET FIRSTNAME = '${req.body.firstname}', LASTNAME = '${req.body.lastname}', EMAIL = '${req.body.email}', PASSWORD = '${req.body.password}' WHERE ID = '${req.params.id}';`,
+      complete: function(err: any, rows: any, field: any) {
+        if (err) {
+          console.error(
+            "Failed to execute statement due to the following error: " +
+              err.message
+          );
+        } else {
+          console.log(field);
+          res.redirect("/table");
         }
       },
     });
